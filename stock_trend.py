@@ -9,7 +9,7 @@ beta2 = 0.3
 N_iterations = 20
 N_batch = 2
 learning_rate = 0.01
-t = 8
+t = 3
 stock_price = 119.029  # g(T)
 
 m_w0 = torch.tensor([[0., 0.], [0., 0.]])  # store weight0
@@ -45,9 +45,9 @@ for i in range(1, N_iterations ):
     stock1 = df.iloc[i-1, 0]
     stock2 = df.iloc[i-1, 1]
     stock3 = df.iloc[i-1, 2]
-    x_p = torch.tensor([stock1, stock2])
+    x_p = torch.sigmoid(torch.tensor([[stock1, stock2]]))
     y_p = net1(x_p)
-    y_t_values = 1/(1-np.exp(stock_price-stock3))
+    y_t_values = 0.35
     y_t = torch.tensor([[y_t_values]])
     loss = loss_fcn(y_p, y_t)
     loss.backward()
