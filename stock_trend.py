@@ -42,9 +42,9 @@ loss_fcn = torch.nn.MSELoss()
 for i in range(1, N_iterations ):
 
     # 选取两列不同年分的股票数据投入网络中进行训练
-    stock1 = df.iloc(i-1, 0)
-    stock2 = df.iloc(i-1, 1)
-    stock3 = df.iloc(i-1, 2)
+    stock1 = df.iloc[i-1, 0]
+    stock2 = df.iloc[i-1, 1]
+    stock3 = df.iloc[i-1, 2]
     x_p = torch.tensor([stock1, stock2])
     y_p = net1(x_p)
     y_t_values = 1/(1-np.exp(stock_price-stock3))
