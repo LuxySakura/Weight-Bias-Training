@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from utils.datautil import PBL_Dataset
 from torch import optim
 
-batch_size = 10
+batch_size = 20
 n_epoch = 20000
 hidden_size = 50
 num_layers = 1
@@ -74,18 +74,18 @@ def Gst(st):
 
 def Cost(input, premium, Delta, Ts):
     XT = []
-    for i in range(batch_size):
-        st = input[i].reshape(-1)
+    for i in range(input.shape[0]):
+        st = input[i]
         p = premium[i]
         delta = Delta[i]
         ts = Ts[i]
         tq = torch.index_select(st, 0, ts[1:]) - torch.index_select(st, 0, ts[:-1])
-        xt = torch.dot(delta, tq) + p
+        xt = torch.dot(delta, tq.reshape(-1)) + p
         XT.append(xt)
     return torch.tensor(XT, requires_grad = True).to(device)
 
 def train(model, loss_fcn):
-    adam = optim.Adam(model.parameters(), lr = 1e-3)
+    adam = optim.SGD(model.parameters(), lr = 1e-3)
     model.train()
 
     for epoch in range(n_epoch):
