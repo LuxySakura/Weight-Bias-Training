@@ -31,8 +31,9 @@ class Portfolio_LSTM(nn.Module):
 
         self.premium = nn.Linear(in_features = hidden_size, out_features = 1)
         self.act = nn.ReLU()
-        self.trade_amount = nn.Linear(in_features = hidden_size, out_features = num_days)
-        self.trade_days = nn.Linear(in_features = hidden_size, out_features = input_size - 1)
+        #self.trade_amount = nn.Linear(in_features = hidden_size, out_features = num_days)
+        self.trade_amount = nn.Linear(in_features = hidden_size, out_features = input_size - 1)
+        #self.trade_days = nn.Linear(in_features = hidden_size, out_features = input_size - 1)
     
     def forward(self, x):
         output, (hn, cn) = self.rnn(x)
@@ -44,14 +45,15 @@ class Portfolio_LSTM(nn.Module):
         trade_amount = self.trade_amount(last_output)
         trade_amount = torch.clamp(trade_amount, -self.trade_limit, self.trade_limit)
 
-        trade_days = self.trade_days(last_output)
-        trade_days = torch.sigmoid(trade_days)
-        mx, days = torch.topk(trade_days, self.num_days)
-        trade_days, _ = torch.sort(days, dim = 1)
-        padding = torch.full((x.shape[0], 1), self.total_days - 1, device = device)
-        trade_days = torch.cat([trade_days, padding], 1)
+        #trade_days = self.trade_days(last_output)
+        #trade_days = torch.sigmoid(trade_days)
+        #mx, days = torch.topk(trade_days, self.num_days)
+        #trade_days, _ = torch.sort(days, dim = 1)
+        #padding = torch.full((x.shape[0], 1), self.total_days - 1, device = device)
+        #trade_days = torch.cat([trade_days, padding], 1)
 
-        return (premium, trade_amount, trade_days)
+        #return (premium, trade_amount, trade_days)
+        return (premium, trade_amount)
 
 dataset = PBL_Dataset('./data/simulation-6.csv', repeat = 1)
 train_dataloader = DataLoader(dataset = dataset, batch_size = batch_size, shuffle = True)
@@ -72,6 +74,7 @@ mse_loss = nn.MSELoss(reduction = 'mean').to(device)
 def Gst(st):
     return st.to(device)
 
+'''
 def Cost(input, premium, Delta, Ts):
     XT = []
     for i in range(input.shape[0]):
@@ -83,9 +86,17 @@ def Cost(input, premium, Delta, Ts):
         xt = torch.dot(delta, tq.reshape(-1)) + p
         XT.append(xt)
     return torch.tensor(XT, requires_grad = True).to(device)
+'''
+
+def Cost(input, premium, Delta):
+    st = input.squeeze()
+    ds = st[:,1:] - st[:,:-1]
+    cost = torch.sum(ds * Delta, dim = 1)
+    xt = cost + premium
+    return xt
 
 def train(model, loss_fcn):
-    adam = optim.Adam(model.parameters(), lr = 1e-1)
+    adam = optim.Adam(model.parameters(), lr = 1e-3)
     model.train()
 
     for epoch in range(n_epoch):
@@ -94,9 +105,11 @@ def train(model, loss_fcn):
             input = batch_x.to(device)
 
             adam.zero_grad()
-            p, delta, ts = model(input)
+            #p, delta, ts = model(input)
+            p, delta = model(input)
 
-            xt = Cost(input, p, delta, ts)
+            #xt = Cost(input, p, delta, ts)
+            xt = Cost(input, p, delta)
             gst = Gst(input[:,-1,:].reshape(-1))
             loss = loss_fcn(xt, gst)
 
