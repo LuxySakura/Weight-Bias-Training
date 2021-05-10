@@ -85,7 +85,7 @@ def Cost(input, premium, Delta, Ts):
     return torch.tensor(XT, requires_grad = True).to(device)
 
 def train(model, loss_fcn):
-    adam = optim.SGD(model.parameters(), lr = 1e-3)
+    adam = optim.Adam(model.parameters(), lr = 1e-1)
     model.train()
 
     for epoch in range(n_epoch):
