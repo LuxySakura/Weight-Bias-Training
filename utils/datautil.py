@@ -9,7 +9,8 @@ class PBL_Dataset(Dataset):
         dat = np.loadtxt(filename, delimiter = ',', dtype = float, encoding = 'utf-8-sig')
         dat /= dat[0]
         dat = dat.T
-        self.data = torch.from_numpy(dat)
+        dat = dat.reshape(dat.shape[0], dat.shape[1], 1)
+        self.data = torch.Tensor(dat)
         self.len = self.data.shape[0]
         self.repeat = repeat
     
