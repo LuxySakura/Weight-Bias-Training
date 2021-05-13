@@ -221,7 +221,7 @@ class Portfolio_RNN(nn.Module):
     def __init__(self, input_size, hidden_size, num_days, num_layers, trade_limit):
         super(Portfolio_RNN, self).__init__()
 
-        self.rnn = nn.LSTM(
+        self.rnn = nn.RNN(
             input_size=1,
             hidden_size=hidden_size,
             num_layers=num_layers,
@@ -239,7 +239,7 @@ class Portfolio_RNN(nn.Module):
         # self.trade_days = nn.Linear(in_features = hidden_size, out_features = input_size - 1)
 
     def forward(self, x):
-        output, (hn, cn) = self.rnn(x)
+        output, hn = self.rnn(x)
         last_output = hn[-1, :, :]
 
         premium = self.premium(last_output)
@@ -354,13 +354,15 @@ def work_table(model, loss_fcn, model_name, loss_name):
     loss_table = loss_table.append(table, ignore_index = True)
 
 #work_table(LSTM, Huber_loss, "LSTM", "Huber")
-#work_table(RNN, Huber_loss, "RNN", "Huber")
-work_table(Mog_LSTM, Huber_loss, "Mog", "Huber")
-#work_table(LSTM2, Asy_loss, "LSTM", "Asym")
-#work_table(RNN2, Asy_loss, "RNN", "Asym")
-work_table(Mog_LSTM2, Asy_loss, "Mog", "Asym")
-#work_table(LSTM, MSE_loss, "LSTM", "MSE")
-#work_table(RNN, MSE_loss, "RNN", "MSE")
-work_table(Mog_LSTM3, MSE_loss, "Mog", "MSE")
+work_table(RNN, Huber_loss, "RNN", "Huber")
+#work_table(Mog_LSTM, Huber_loss, "Mog", "Huber")
 
-loss_table.to_csv("loss_data_Mog.csv", index = False)
+#work_table(LSTM2, Asy_loss, "LSTM", "Asym")
+work_table(RNN2, Asy_loss, "RNN", "Asym")
+#work_table(Mog_LSTM2, Asy_loss, "Mog", "Asym")
+
+#work_table(LSTM3, MSE_loss, "LSTM", "MSE")
+work_table(RNN3, MSE_loss, "RNN", "MSE")
+#work_table(Mog_LSTM3, MSE_loss, "Mog", "MSE")
+
+loss_table.to_csv("loss_data_RNN.csv", index = False)
