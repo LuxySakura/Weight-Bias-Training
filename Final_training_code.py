@@ -13,8 +13,8 @@ from torch.utils.data import Dataset, DataLoader
 learning_rate = 2
 r = 4  # hyperparameter,which has a better effect when equals to 5
 delta = 0.5
-batch_size = 20
-n_epoch = 500
+batch_size = 50
+n_epoch = 1000
 hidden_size = 50
 num_layers = 1
 num_days = 50
@@ -44,9 +44,8 @@ class PBL_Dataset(Dataset):
         return self.data.shape[1]
 
 
-dataset = PBL_Dataset('simulation-6.csv', repeat=1)
-train_dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
-test_dataloader = DataLoader(dataset=dataset, batch_size=100, shuffle=False)
+dataset = PBL_Dataset('./data/simulation-new.csv', repeat=1)
+neutral_dataset = PBL_Dataset('./data/simulation-neutral.csv', repeat=1)
 
 
 class Asy_loss_function(nn.Module):
@@ -273,17 +272,25 @@ def Cost(input, premium, Delta):
     st = input.squeeze()
     ds = st[:, 1:] - st[:, :-1]
     cost = torch.sum(ds * Delta, dim=1)
-    xt = cost + premium
+    xt = cost + premium.squeeze()
     return xt
 
 
-def train(model, loss_fcn):
+def train(model, loss_fcn, dataset):
+    slen = len(dataset)
+    train_size, test_size = int(0.8*slen), int(0.2*slen)
+    train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
+    train_dataloader = DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(dataset=test_set, batch_size=10, shuffle=True)
+
     adam = optim.Adam(model.parameters(), lr=1e-3)
-    model.train()
+
+    train_loss = []
+    test_loss = []
 
     for epoch in range(n_epoch):
+        model.train()
         losses = []
-        epoches = []
         for batch_x in train_dataloader:
             input = batch_x.to(device)
 
@@ -295,27 +302,49 @@ def train(model, loss_fcn):
             xt = Cost(input, p, delta)
             gst = Gst(input[:, -1, :].reshape(-1))
             loss = loss_fcn(xt, gst)
-            value = loss
-            if epoch > 300:
-                losses.append(loss.item())
+            losses.append(loss.item())
             loss.backward()
             adam.step()
-        epoches.append(epoch)
+        train_loss.append(np.mean(losses))
+
+        model.eval()
+        losses = []
+        with torch.no_grad():
+            for batch_x in test_dataloader:
+                input = batch_x.to(device)
+                p, delta = model(input)
+                xt = Cost(input, p, delta)
+                gst = Gst(input[:, -1, :].reshape(-1))
+                loss = loss_fcn(xt, gst)
+                losses.append(loss.item())
+            test_loss.append(np.mean(losses))
+        
         print(epoch)
-        plt.scatter(epoch - 300, np.mean(losses))
-    print(value)
+    return train_loss, test_loss
 
 
 input_size = dataset.Days()
 LSTM = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
-                      num_days=num_days, trade_limit=trade_limit)
+                      num_days=num_days, trade_limit=trade_limit).to(device)
 Mog_LSTM = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
-                         num_days=num_days, trade_limit=trade_limit, mog_iterations=r)
+                         num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
 RNN = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
-                    num_days=num_days, num_layers=num_layers, trade_limit=trade_limit)
+                    num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
 
-train(RNN, MSE_loss)
-plt.show()
+loss_table = pd.DataFrame()
+
+def work_table(model, loss_fcn, model_name, loss_name):
+    global loss_table
+    train_loss, test_loss = train(model, loss_fcn, neutral_dataset)
+    table = pd.DataFrame({"epoch": np.arange(1, n_epoch+1), "model": model_name, "loss_fcn": loss_name, 
+                            "train_loss": train_loss, "test_loss": test_loss})
+    loss_table = loss_table.append(table, ignore_index = True)
+
+work_table(LSTM, MSE_loss, "LSTM", "MSE")
+work_table(RNN, MSE_loss, "RNN", "MSE")
+#work_table(Mog_LSTM, MSE_loss, "Mog", "MSE")
+
+loss_table.to_csv("loss_data_neutral.csv", index = False)
 
 
 
