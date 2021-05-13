@@ -8,6 +8,7 @@ from typing import *
 from enum import IntEnum
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+from tqdm import trange
 
 
 learning_rate = 2
@@ -109,9 +110,9 @@ class MogLSTM(nn.Module):
     def mogrify(self, xt, ht):
         for i in range(1, self.mog_iterations + 1):
             if (i % 2 == 0):
-                ht = (2 * torch.sigmoid(xt @ self.R)) * ht
+                ht = (2 * torch.sigmoid(torch.mm(xt, self.R))) * ht
             else:
-                xt = (2 * torch.sigmoid(ht @ self.Q)) * xt
+                xt = (2 * torch.sigmoid(torch.mm(ht, self.Q))) * xt
         return xt, ht
 
     # Define forward pass through all LSTM cells across all timesteps.
@@ -121,7 +122,7 @@ class MogLSTM(nn.Module):
                 ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Assumes x is of shape (batch, sequence, feature)"""
         batch_sz, seq_sz, _ = x.size()
-        hidden_seq = []
+        hidden_seq = [0] * seq_sz
         # ht and Ct start as the previous states and end as the output states in each loop below
         if init_states is None:
             ht = torch.zeros((batch_sz, self.hidden_size)).to(x.device)
@@ -131,7 +132,7 @@ class MogLSTM(nn.Module):
         for t in range(seq_sz):  # iterate over the time steps
             xt = x[:, t, :]
             xt, ht = self.mogrify(xt, ht)  # mogrification
-            gates = (xt @ self.Wih + self.bih) + (ht @ self.Whh + self.bhh)
+            gates = (torch.mm(xt, self.Wih) + self.bih) + (torch.mm(ht, self.Whh) + self.bhh)
             ingate, forgetgate, cellgate, outgate = gates.chunk(4, 1)
 
             ### The LSTM Cell!
@@ -144,7 +145,7 @@ class MogLSTM(nn.Module):
             ht = ot * torch.tanh(Ct)
             ###
 
-            hidden_seq.append(ht.unsqueeze(Dim.batch))
+            hidden_seq[t] = ht.unsqueeze(Dim.batch)
         hidden_seq = torch.cat(hidden_seq, dim=Dim.batch)
         # reshape from shape (sequence, batch, feature) to (batch, sequence, feature)
         hidden_seq = hidden_seq.transpose(Dim.batch, Dim.seq).contiguous()
@@ -288,7 +289,7 @@ def train(model, loss_fcn, dataset):
     train_loss = []
     test_loss = []
 
-    for epoch in range(n_epoch):
+    for epoch in trange(n_epoch):
         model.train()
         losses = []
         for batch_x in train_dataloader:
@@ -318,8 +319,6 @@ def train(model, loss_fcn, dataset):
                 loss = loss_fcn(xt, gst)
                 losses.append(loss.item())
             test_loss.append(np.mean(losses))
-        
-        print(epoch)
     return train_loss, test_loss
 
 
@@ -331,24 +330,37 @@ Mog_LSTM = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
 RNN = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
                     num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
 
+LSTM2 = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
+                      num_days=num_days, trade_limit=trade_limit).to(device)
+Mog_LSTM2 = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
+                         num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
+RNN2 = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
+                    num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
+
+LSTM3 = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
+                      num_days=num_days, trade_limit=trade_limit).to(device)
+Mog_LSTM3 = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
+                         num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
+RNN3 = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
+                    num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
+
 loss_table = pd.DataFrame()
 
 def work_table(model, loss_fcn, model_name, loss_name):
     global loss_table
-    train_loss, test_loss = train(model, loss_fcn, neutral_dataset)
+    train_loss, test_loss = train(model, loss_fcn, dataset)
     table = pd.DataFrame({"epoch": np.arange(1, n_epoch+1), "model": model_name, "loss_fcn": loss_name, 
                             "train_loss": train_loss, "test_loss": test_loss})
     loss_table = loss_table.append(table, ignore_index = True)
 
-work_table(LSTM, MSE_loss, "LSTM", "MSE")
-work_table(RNN, MSE_loss, "RNN", "MSE")
-#work_table(Mog_LSTM, MSE_loss, "Mog", "MSE")
+#work_table(LSTM, Huber_loss, "LSTM", "Huber")
+#work_table(RNN, Huber_loss, "RNN", "Huber")
+work_table(Mog_LSTM, Huber_loss, "Mog", "Huber")
+#work_table(LSTM2, Asy_loss, "LSTM", "Asym")
+#work_table(RNN2, Asy_loss, "RNN", "Asym")
+work_table(Mog_LSTM2, Asy_loss, "Mog", "Asym")
+#work_table(LSTM, MSE_loss, "LSTM", "MSE")
+#work_table(RNN, MSE_loss, "RNN", "MSE")
+work_table(Mog_LSTM3, MSE_loss, "Mog", "MSE")
 
-loss_table.to_csv("loss_data_neutral.csv", index = False)
-
-
-
-
-
-
-
+loss_table.to_csv("loss_data_Mog.csv", index = False)
