@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -259,7 +259,8 @@ class Portfolio_RNN(nn.Module):
         return (premium, trade_amount)
 
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cpu')
 Asy_loss = Asy_loss_function(learning_rate)
 MSE_loss = torch.nn.MSELoss()
 Huber_loss = Huber_loss_function(delta)
@@ -323,46 +324,50 @@ def train(model, loss_fcn, dataset):
 
 
 input_size = dataset.Days()
-LSTM = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
-                      num_days=num_days, trade_limit=trade_limit).to(device)
-Mog_LSTM = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
-                         num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
-RNN = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
-                    num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
+#LSTM = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
+                      #num_days=num_days, trade_limit=trade_limit).to(device)
+#Mog_LSTM = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
+                         #num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
+#RNN = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
+                    #num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
 
-LSTM2 = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
-                      num_days=num_days, trade_limit=trade_limit).to(device)
-Mog_LSTM2 = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
-                         num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
-RNN2 = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
-                    num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
+#LSTM2 = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
+                      #num_days=num_days, trade_limit=trade_limit).to(device)
+#Mog_LSTM2 = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
+                         #num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
+#RNN2 = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
+                    #num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
 
-LSTM3 = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
-                      num_days=num_days, trade_limit=trade_limit).to(device)
+#LSTM3 = Portfolio_LSTM(input_size=input_size, hidden_size=hidden_size,
+                      #num_days=num_days, trade_limit=trade_limit).to(device)
 Mog_LSTM3 = Portfolio_Mog(input_size=input_size, hidden_size=hidden_size,
                          num_days=num_days, trade_limit=trade_limit, mog_iterations=r).to(device)
-RNN3 = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
-                    num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
+#RNN3 = Portfolio_RNN(input_size=input_size, hidden_size=hidden_size,
+                    #num_days=num_days, num_layers=num_layers, trade_limit=trade_limit).to(device)
 
 loss_table = pd.DataFrame()
 
 def work_table(model, loss_fcn, model_name, loss_name):
     global loss_table
-    train_loss, test_loss = train(model, loss_fcn, dataset)
+    train_loss, test_loss = train(model, loss_fcn, neutral_dataset)
     table = pd.DataFrame({"epoch": np.arange(1, n_epoch+1), "model": model_name, "loss_fcn": loss_name, 
                             "train_loss": train_loss, "test_loss": test_loss})
     loss_table = loss_table.append(table, ignore_index = True)
 
 #work_table(LSTM, Huber_loss, "LSTM", "Huber")
-work_table(RNN, Huber_loss, "RNN", "Huber")
+#work_table(RNN, Huber_loss, "RNN", "Huber")
 #work_table(Mog_LSTM, Huber_loss, "Mog", "Huber")
 
+#loss_table.to_csv("loss_data_Mog_neutral_1.csv", index = False)
+
 #work_table(LSTM2, Asy_loss, "LSTM", "Asym")
-work_table(RNN2, Asy_loss, "RNN", "Asym")
+#work_table(RNN2, Asy_loss, "RNN", "Asym")
 #work_table(Mog_LSTM2, Asy_loss, "Mog", "Asym")
 
-#work_table(LSTM3, MSE_loss, "LSTM", "MSE")
-work_table(RNN3, MSE_loss, "RNN", "MSE")
-#work_table(Mog_LSTM3, MSE_loss, "Mog", "MSE")
+#loss_table.to_csv("loss_data_Mog_neutral_2.csv", index = False)
 
-loss_table.to_csv("loss_data_RNN.csv", index = False)
+#work_table(LSTM3, MSE_loss, "LSTM", "MSE")
+#work_table(RNN3, MSE_loss, "RNN", "MSE")
+work_table(Mog_LSTM3, MSE_loss, "Mog", "MSE")
+
+loss_table.to_csv("loss_data_Mog_neutral.csv", index = False)
